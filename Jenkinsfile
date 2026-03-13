@@ -1,31 +1,41 @@
 pipeline {
-    agent {
-        docker {
-            // image 'node:lts-buster-slim'
-            image 'mrts/docker-python-nodejs-google-chrome'            
-            args '-p 3000:3000'
-        }
-    }
+    agent any
 
     environment {
-        CI = 'true'
+        // Change this to YOUR Docker Hub ID
+        DOCKER_USER = "phoomyatthwe6611"
+        APP_NAME = "todo-app"
     }
 
     stages {
-        stage('Build') {
+        stage('Checkout') {
             steps {
-                sh 'npm install'
+                checkout scm
             }
         }
-        stage('Test') {
+
+        stage('Build & Test') {
             steps {
-                // start the server
-                sh 'npm run test'
+                // We use 'docker build' instead of 'npm install' because 
+                // the Dockerfile handles all dependencies (including sqlite3)
+                sh "docker build -t ${DOCKER_USER}/${APP_NAME}:latest ."
             }
         }
+
+        stage('Push to Docker Hub') {
+            steps {
+                // This ID must match the one you created in Jenkins -> Credentials
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh "echo ${PASS} | docker login -u ${USER} --password-stdin"
+                    sh "docker push ${DOCKER_USER}/${APP_NAME}:latest"
+                }
+            }
+        }
+
         stage('Deploy') {
             steps {
-                echo 'Deploying....'
+                echo 'Deploying to VM....'
+                // This is where you would put your 'docker run' command for the VM
             }
         }
     }
